@@ -96,7 +96,7 @@ for epoch in range(num_epochs):
 
 
 # Save the model
-torch.save(model.state_dict(), "inception_weights.pth")
+torch.save(model.state_dict(), "Inception_weights.pth")
 
 
 # Plot and save the training loss
@@ -111,5 +111,5 @@ plt.legend()
 plt.grid(True)
 
 # Lưu biểu đồ
-plt.savefig('train_val_loss.png', bbox_inches='tight')
+plt.savefig('Inception_train_val_loss.png', bbox_inches='tight')
 plt.show()
