@@ -6,8 +6,8 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-from CIFAR10Dataset import train_dataset, train_loader
-from inception import CNN_Inception
+from CIFAR10Dataset import train_loader
+from inception_model import CNN_Inception
 
 
 # Initialize the model, loss function, and optimizer
@@ -19,6 +19,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 train_losses = []
 epochs = []
+
 
 # Training step
 num_epochs = 100
@@ -45,11 +46,12 @@ for epoch in range(num_epochs):
     train_losses.append(train_loss / len(train_loader))
     epochs.append(epoch + 1)
 
-    print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {train_loss / len(train_loader):.4f}")
 
 # Save the model
 torch.save(model.state_dict(), "inception_model.pth")
 
+
+# Evaluate the model on the training data
 model.eval()
 correct = 0
 total = 0
@@ -64,6 +66,8 @@ with torch.no_grad():
 
 print(f"Training Accuracy: {100 * correct / total:.2f}%")
 
+
+# Plot and save the training loss
 plt.figure(figsize=(10, 6))
 plt.plot(epochs, train_losses, label='Train Loss', color='blue')
 plt.xlabel('Epoch')
@@ -71,4 +75,5 @@ plt.ylabel('Loss')
 plt.title('Training Loss per Epoch')
 plt.legend()
 plt.grid(True)
+plt.savefig('training_loss.png', bbox_inches='tight')
 plt.show()
