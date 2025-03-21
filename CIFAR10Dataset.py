@@ -3,7 +3,8 @@ This file contains the CIFAR10Dataset class which is used to load the CIFAR-10 d
 '''
 
 from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
+from sklearn.model_selection import train_test_split
+
 import numpy as np
 import torch
 
@@ -29,36 +30,52 @@ def unpickle(file):
 #----------------------------------------------------------------------------------------
 
 
-# Load the dataset
+# Load the CIFAR-10 dataset
 data_folder = 'cifar-10-batches-py/'
 
 
-# Load the training data (using 4 training batches of Cifar-10)
+
+# Load the pretrain data for features extraction models (using 4 training batches of Cifar-10)
 for i in range(1, 5):
-    data_batch = unpickle(data_folder + 'data_batch_' + str(i))
+    pretrain_data_batch = unpickle(data_folder + 'data_batch_' + str(i))
     if i == 1:
-        train_images = data_batch[b'data']
-        train_labels = data_batch[b'labels']
+        pretrain_images = pretrain_data_batch[b'data']
+        pretrain_labels = pretrain_data_batch[b'labels']
     else:
-        train_images = np.vstack((train_images, data_batch[b'data']))
-        train_labels = np.hstack((train_labels, data_batch[b'labels']))
+        pretrain_images = np.vstack((pretrain_images, pretrain_data_batch[b'data']))
+        pretrain_labels = np.hstack((pretrain_labels, pretrain_data_batch[b'labels']))
 
-train_images = train_images.reshape(-1, 3, 32, 32)
-train_images = torch.tensor(train_images, dtype=torch.float32) / 255.0
-train_labels = torch.tensor(train_labels, dtype=torch.long)
+pretrain_images = pretrain_images.reshape(-1, 3, 32, 32)
+pretrain_images = torch.tensor(pretrain_images, dtype=torch.float32) / 255.0
+pretrain_labels = torch.tensor(pretrain_labels, dtype=torch.long)
 
 
-# Load the validation data (using the 5th training batch of Cifar-10)
-data_batch = unpickle(data_folder + 'data_batch_5')
-val_images = data_batch[b'data']
-val_labels = data_batch[b'labels']
+# Load the validation data for features extraction models (using the 5th training batch of Cifar-10)
+val_data_batch = unpickle(data_folder + 'data_batch_5')
+val_images = val_data_batch[b'data']
+val_labels = val_data_batch[b'labels']
 
 val_images = val_images.reshape(-1, 3, 32, 32)
 val_images = torch.tensor(val_images, dtype=torch.float32) / 255.0
 val_labels = torch.tensor(val_labels, dtype=torch.long)
 
 
-# Dataloader for train data and validation data
-train_dataset = CIFAR10Dataset(train_images, train_labels)
+# Load the data for the classifier models (using test batch of Cifar-10)
+data_batch = unpickle(data_folder + 'test_batch')
+images = data_batch[b'data']
+labels = data_batch[b'labels']
+
+images = images.reshape(-1, 3, 32, 32)
+images = torch.tensor(images, dtype=torch.float32) / 255.0
+labels = torch.tensor(labels, dtype=torch.long)
+
+# train test split
+train_images, test_images, train_labels, test_labels = train_test_split(images, labels, test_size=0.2, random_state=42, stratify=labels)
+
+
+
+# Create the datasets
+pretrain_dataset = CIFAR10Dataset(pretrain_images, pretrain_labels)
 val_dataset = CIFAR10Dataset(val_images, val_labels)
-val_loader = DataLoader(val_dataset, batch_size=64, shuffle=True)
+train_dataset = CIFAR10Dataset(train_images, train_labels)
+test_dataset = CIFAR10Dataset(test_images, test_labels)

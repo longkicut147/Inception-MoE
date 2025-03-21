@@ -3,32 +3,20 @@ This script extracts features from the inception model and uses them to train th
 '''
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-from sklearn.model_selection import train_test_split
-from sklearn.tree import DecisionTreeClassifier
-
 from tqdm import tqdm
 
+from CIFAR10Dataset import train_dataset, test_dataset
+from torch.utils.data import DataLoader
+
 from model import CNN_Inception
-from CIFAR10Dataset import unpickle
+from sklearn.tree import DecisionTreeClassifier
 
 
-# Load the dataset (using the test_batch of Cifar-10)
-data_folder = 'cifar-10-batches-py/test_batch'
-data_batch = unpickle(data_folder)
-images = data_batch[b'data']
-labels = data_batch[b'labels']
 
-images = images.reshape(-1, 3, 32, 32)
-images = torch.tensor(images, dtype=torch.float32) / 255.0
-labels = torch.tensor(labels, dtype=torch.long)
+# Data loaders
+train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
-# train-test split
-images_train, images_test, labels_train, labels_test = train_test_split(
-    images, labels, test_size=0.2, random_state=42, stratify=labels
-)
 
 # print(images_train.shape)
 # print(images_test.shape)
@@ -39,6 +27,7 @@ images_train, images_test, labels_train, labels_test = train_test_split(
 # print(type(labels_train))
 # print(type(labels_test))
 
+
 # Load the model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 cnn_inception = CNN_Inception(in_channels=3).to(device)
@@ -47,22 +36,27 @@ cnn_inception.eval()
 
 
 # Extract features, using the inception model remove the FC layer
-batch_size = 64
 features_train = []
+labels_train = []
 features_test = []
+labels_test = []
 
 with torch.no_grad():
-    for i in tqdm(range(0, len(images_train), batch_size), desc="Processing Batches"):
-        batch = images_train[i:i + batch_size].to(device)
+    for batch in tqdm(train_loader, desc="Processing Train Batches"):
+        batch = batch[0].to(device)
         batch_features = cnn_inception(batch, extract_features=True)
         features_train.append(batch_features)
+        labels_train.append(batch[1])
     features_train = torch.cat(features_train, dim=0)
+    labels_train = torch.cat(labels_train, dim=0)
 
-    for i in tqdm(range(0, len(images_test), batch_size), desc="Processing Batches"):
-        batch = images_test[i:i + batch_size].to(device)
+    for batch in tqdm(test_loader, desc="Processing Test Batches"):
+        batch = batch[0].to(device)
         batch_features = cnn_inception(batch, extract_features=True)
         features_test.append(batch_features)
+        labels_test.append(batch[1])
     features_test = torch.cat(features_test, dim=0)
+    labels_test = torch.cat(labels_test, dim=0)
 
 
 

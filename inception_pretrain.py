@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from CIFAR10Dataset import train_dataset, val_dataset
+from CIFAR10Dataset import pretrain_dataset, val_dataset
 from torch.utils.data import DataLoader
 from model import CNN_Inception
 
@@ -29,7 +29,7 @@ def set_seed(seed=42):
 set_seed(42)
 
 # Data loaders
-train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+train_loader = DataLoader(pretrain_dataset, batch_size=64, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
 
 
@@ -70,6 +70,8 @@ for epoch in range(num_epochs):
 
         train_loader_tqdm.set_description(f"Epoch {epoch + 1}/{num_epochs} | Loss: {loss.item():.4f}")
         train_loader_tqdm.update()
+    
+    print(f"\nEpoch {epoch + 1}/{num_epochs} | Loss: {loss.item():.4f}")
 
     train_losses.append(train_loss / len(train_loader))
 
