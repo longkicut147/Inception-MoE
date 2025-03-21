@@ -1,3 +1,7 @@
+'''
+This script extracts features from the inception model and uses them to train the classifier. (temporarily using the decision tree)
+'''
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,10 +11,11 @@ from sklearn.tree import DecisionTreeClassifier
 
 from tqdm import tqdm
 
-from inception_model import CNN_Inception
+from model import CNN_Inception
 from CIFAR10Dataset import unpickle
 
-# Load the test data
+
+# Load the dataset (using the test_batch of Cifar-10)
 data_folder = 'cifar-10-batches-py/test_batch'
 data_batch = unpickle(data_folder)
 images = data_batch[b'data']
@@ -72,5 +77,3 @@ model = DecisionTreeClassifier(criterion='entropy', max_depth=3, random_state=42
 model.fit(features_train, labels_train)
 accuracy = model.score(features_test, labels_test)
 print(f"Độ chính xác của mô hình: {accuracy:.2f}")
-
-# Độ chính xác của mô hình: 0.65
