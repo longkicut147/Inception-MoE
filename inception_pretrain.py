@@ -29,8 +29,8 @@ def set_seed(seed=42):
 set_seed(42)
 
 # Data loaders
-train_loader = DataLoader(pretrain_dataset, batch_size=64, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
+train_loader = DataLoader(pretrain_dataset, batch_size=2048, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False)
 
 
 # --------------------------------------------------------------------------------
@@ -38,17 +38,19 @@ val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
 
 # Initialize the model, loss function, and optimizer
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = CNN_Inception().to(device)
+model = CNN_Inception(dropout=0.75).to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.0001, weight_decay=1e-4)
+optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
 # Early Stopping Parameters
-patience = 10  # Số epoch cho phép trước khi dừng
+patience = 100  # Số epoch cho phép trước khi dừng
 best_val_loss = float("inf")
 early_stop_counter = 0
 
 train_losses = []
 val_losses = []
+train_accuracy = []
+val_accuracy = []
 epochs = []
 
 
@@ -76,10 +78,11 @@ for epoch in range(num_epochs):
 
         train_loss += loss.item()
 
-        train_loader_tqdm.set_description(f"Epoch {epoch + 1}/{num_epochs} | Loss: {loss.item():.4f}")
+        accuracy = (outputs.argmax(dim=1) == labels).float().mean()
+        train_accuracy.append(accuracy)
+
+        train_loader_tqdm.set_description(f"Epoch {epoch + 1}/{num_epochs} | Loss: {loss.item():.4f} | Accuracy: {accuracy.item():.2f}")
         train_loader_tqdm.update()
-    
-    print(f"\nEpoch {epoch + 1}/{num_epochs} | Loss: {loss.item():.4f}")
 
     train_losses.append(train_loss / len(train_loader))
 
@@ -96,7 +99,10 @@ for epoch in range(num_epochs):
             loss = criterion(outputs, labels)
             val_loss += loss.item()
 
-    print(f"\nValidation Loss: {val_loss / len(val_loader):.4f}")
+            accuracy = (outputs.argmax(dim=1) == labels).float().mean()
+            val_accuracy.append(accuracy)
+
+    print(f"\nValidation Loss: {val_loss / len(val_loader):.4f} | Accuracy: {accuracy.item():.2f}")
 
     val_losses.append(val_loss / len(val_loader))
 

@@ -66,12 +66,13 @@ class StackedInception(nn.Module):
 
 
 class CNN_Inception(nn.Module):
-    def __init__(self, in_channels=3):
+    def __init__(self, in_channels=3, dropout=0.5):
         super(CNN_Inception, self).__init__()
-
+        
+        self.relu = nn.ReLU()
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(dropout)
 
         self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3)
         self.conv2 = nn.Conv2d(64, 64, kernel_size=1)
@@ -87,11 +88,14 @@ class CNN_Inception(nn.Module):
 
     def forward(self, x, extract_features=False):
         x = self.conv1(x)
+        x = self.relu(x)
         x = self.dropout(x)
         x = self.maxpool(x)
 
         x = self.conv2(x)
+        x = self.relu(x)
         x = self.conv3(x)
+        x = self.relu(x)
         x = self.dropout(x)
         x = self.maxpool(x)
 
