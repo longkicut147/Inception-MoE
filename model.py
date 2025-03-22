@@ -71,6 +71,7 @@ class CNN_Inception(nn.Module):
 
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.dropout = nn.Dropout(0.5)
 
         self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3)
         self.conv2 = nn.Conv2d(64, 64, kernel_size=1)
@@ -86,19 +87,24 @@ class CNN_Inception(nn.Module):
 
     def forward(self, x, extract_features=False):
         x = self.conv1(x)
+        x = self.dropout(x)
         x = self.maxpool(x)
 
         x = self.conv2(x)
         x = self.conv3(x)
+        x = self.dropout(x)
         x = self.maxpool(x)
 
         x = self.stack1(x)
+        x = self.dropout(x)
         x = self.maxpool(x)
 
         x = self.stack2(x)
+        x = self.dropout(x)
         x = self.maxpool(x)
 
         x = self.stack3(x)
+        x = self.dropout(x)
         x = self.global_avg_pool(x)
 
         x = x.view(x.size(0), -1)

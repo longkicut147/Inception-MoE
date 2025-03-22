@@ -40,8 +40,12 @@ val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = CNN_Inception().to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.parameters(), lr=0.0001, weight_decay=1e-4)
 
+# Early Stopping Parameters
+patience = 10  # Số epoch cho phép trước khi dừng
+best_val_loss = float("inf")
+early_stop_counter = 0
 
 train_losses = []
 val_losses = []
@@ -61,9 +65,13 @@ for epoch in range(num_epochs):
         images, labels = images.to(device), labels.to(device)
 
         optimizer.zero_grad()
+
         outputs = model(images)
         loss = criterion(outputs, labels)
         loss.backward()
+
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
         optimizer.step()
 
         train_loss += loss.item()
@@ -88,11 +96,27 @@ for epoch in range(num_epochs):
             loss = criterion(outputs, labels)
             val_loss += loss.item()
 
+    print(f"\nValidation Loss: {val_loss / len(val_loader):.4f}")
+
     val_losses.append(val_loss / len(val_loader))
 
 
-    # Next epoch
     epochs.append(epoch + 1)
+
+
+    # Early Stopping
+    if val_loss < best_val_loss:
+        best_val_loss = val_loss
+        early_stop_counter = 0
+        torch.save(model.state_dict(), "Inception_weights.pth")
+        print("✅ Model improved, saving...")
+    else:
+        early_stop_counter += 1
+        print(f"Early Stopping Counter: {early_stop_counter}/{patience}")
+
+    if early_stop_counter >= patience:
+        print("Early stopping triggered. Stopping training.")
+        break
 
 
 # Save the model
