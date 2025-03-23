@@ -38,9 +38,9 @@ val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False)
 
 # Initialize the model, loss function, and optimizer
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = CNN_Inception(dropout=0.75).to(device)
+model = CNN_Inception(dropout=0.5).to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
 # Early Stopping Parameters
 patience = 100  # Số epoch cho phép trước khi dừng
@@ -49,8 +49,8 @@ early_stop_counter = 0
 
 train_losses = []
 val_losses = []
-train_accuracy = []
-val_accuracy = []
+train_accuracies = []
+val_accuracies = []
 epochs = []
 
 
@@ -61,6 +61,7 @@ for epoch in range(num_epochs):
     # Train the model
     model.train()
     train_loss = 0.0
+    train_accuracy = 0.0
     train_loader_tqdm = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", leave=False)
 
     for images, labels in train_loader:
@@ -79,17 +80,19 @@ for epoch in range(num_epochs):
         train_loss += loss.item()
 
         accuracy = (outputs.argmax(dim=1) == labels).float().mean()
-        train_accuracy.append(accuracy)
+        train_accuracy += accuracy
 
-        train_loader_tqdm.set_description(f"Epoch {epoch + 1}/{num_epochs} | Loss: {loss.item():.4f} | Accuracy: {accuracy.item():.2f}")
+        train_loader_tqdm.set_description(f"Epoch {epoch + 1}/{num_epochs} | Loss: {loss.item():.4f} | Accuracy: {train_accuracy.item() / len(train_loader):.2f}")
         train_loader_tqdm.update()
 
     train_losses.append(train_loss / len(train_loader))
-
+    train_accuracies.append(train_accuracy / len(train_loader))
+    train_loader_tqdm.close()
 
     # Evaluate the model on the validation data
     model.eval()
     val_loss = 0.0
+    val_accuracy = 0.0
     # val_loader = val_loader
 
     with torch.no_grad():
@@ -100,11 +103,12 @@ for epoch in range(num_epochs):
             val_loss += loss.item()
 
             accuracy = (outputs.argmax(dim=1) == labels).float().mean()
-            val_accuracy.append(accuracy)
+            val_accuracy += accuracy
 
-    print(f"\nValidation Loss: {val_loss / len(val_loader):.4f} | Accuracy: {accuracy.item():.2f}")
+    print(f"\nValidation Loss: {val_loss / len(val_loader):.4f} | Accuracy: {val_accuracy.item() / len(val_loader):.2f}\n")
 
     val_losses.append(val_loss / len(val_loader))
+    val_accuracies.append(val_accuracy / len(val_loader))
 
 
     epochs.append(epoch + 1)
@@ -143,3 +147,19 @@ plt.grid(True)
 # Lưu biểu đồ
 plt.savefig('Inception_train_val_loss.png', bbox_inches='tight')
 plt.show()
+
+# Plot and save the training accuracy
+plt.figure(figsize=(10, 6))
+plt.plot(epochs, train_accuracies, label='Train Accuracy', color='blue')
+plt.plot(epochs, val_accuracies, label='Validation Accuracy', color='orange')
+
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.title('Training & Validation Accuracy per Epoch')
+plt.legend()
+plt.grid(True)
+
+# Lưu biểu đồ
+plt.savefig('Inception_train_val_accuracy.png', bbox_inches='tight')
+plt.show()
+

@@ -4,119 +4,91 @@ import torch.nn.functional as F
 
 #----------------------------------------Inception Model----------------------------------------
 class InceptionModule(nn.Module):
-    def __init__(self, in_channels=3):
+    def __init__(self, in_channels, c1, c2, c3, c4):
         super(InceptionModule, self).__init__()
-
-        # Branch 1: 1x1 Convolution
-        self.branch1x1 = nn.Sequential(
-            nn.Conv2d(in_channels, 64, kernel_size=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU()
-        )
-
-        # Branch 2: 1x1 Convolution -> 3x3 Convolution
-        self.branch3x3 = nn.Sequential(
-            nn.Conv2d(in_channels, 96, kernel_size=1),
-            nn.BatchNorm2d(96),
-            nn.ReLU(),
-            nn.Conv2d(96, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU()
-        )
-
-        # Branch 3: 1x1 Convolution -> 5x5 Convolution
-        self.branch5x5 = nn.Sequential(
-            nn.Conv2d(in_channels, 16, kernel_size=1),
-            nn.BatchNorm2d(16),
-            nn.ReLU(),
-            nn.Conv2d(16, 32, kernel_size=5, padding=2),
-            nn.BatchNorm2d(32),
-            nn.ReLU()
-        )
-
-        # Branch 4: MaxPooling -> 1x1 Convolution
-        self.branch_pool = nn.Sequential(
-            nn.MaxPool2d(kernel_size=3, stride=1, padding=1),
-            nn.Conv2d(in_channels, 32, kernel_size=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU()
-        )
+        
+        # Path 1: 1x1 Conv
+        self.p1_1 = nn.Conv2d(in_channels, c1, kernel_size=1)
+        
+        # Path 2: 1x1 Conv -> 3x3 Conv
+        self.p2_1 = nn.Conv2d(in_channels, c2[0], kernel_size=1)
+        self.p2_2 = nn.Conv2d(c2[0], c2[1], kernel_size=3, padding=1)
+        
+        # Path 3: 1x1 Conv -> 5x5 Conv
+        self.p3_1 = nn.Conv2d(in_channels, c3[0], kernel_size=1)
+        self.p3_2 = nn.Conv2d(c3[0], c3[1], kernel_size=5, padding=2)
+        
+        # Path 4: 3x3 MaxPool -> 1x1 Conv
+        self.p4_1 = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
+        self.p4_2 = nn.Conv2d(in_channels, c4, kernel_size=1)
+        
+        self.relu = nn.ReLU()
 
     def forward(self, x):
-        out1 = self.branch1x1(x)
-        out2 = self.branch3x3(x)
-        out3 = self.branch5x5(x)
-        out4 = self.branch_pool(x)
-        outputs = torch.cat([out1, out2, out3, out4], dim=1)
-        return outputs
-
-
-class StackedInception(nn.Module):
-    def __init__(self, input_channels, num_modules=3):
-        super(StackedInception, self).__init__()
-        ouput_channels = 256
-        self.inception_modules = nn.ModuleList([
-            InceptionModule(input_channels if i == 0 else ouput_channels) for i in range(num_modules)
-        ])
-
-    def forward(self, x):
-        for module in self.inception_modules:
-            x = module(x)
-        return x
+        p1 = self.relu(self.p1_1(x))
+        p2 = self.relu(self.p2_2(self.relu(self.p2_1(x))))
+        p3 = self.relu(self.p3_2(self.relu(self.p3_1(x))))
+        p4 = self.relu(self.p4_2(self.p4_1(x)))
+        
+        return torch.cat((p1, p2, p3, p4), dim=1)
 
 
 class CNN_Inception(nn.Module):
     def __init__(self, in_channels=3, dropout=0.5):
         super(CNN_Inception, self).__init__()
+
+        # 7x7 Conv
+        self.b1 = nn.Sequential(
+            nn.Conv2d(in_channels, 32, kernel_size=3, stride=1, padding=1), # 32,32,32
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                # 32,16,16
+        )
+
+        # 1x1 Conv -> 3x3 Conv
+        self.b2 = nn.Sequential(
+            nn.Conv2d(32, 32, kernel_size=1),                               # 32,16,16
+            nn.ReLU(),
+            nn.Conv2d(32, 96, kernel_size=3, padding=1),                    # 96,16,16
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                # 96,8,8
+        )
+
+        # Inception Module x2
+        self.b3 = nn.Sequential(
+            InceptionModule(96, 32, (48, 64), (8, 16), 16),                 # 128,8,8
+            InceptionModule(128, 64, (64, 96), (16, 48), 48),               # 256,8,8
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                # 256,4,4
+        )
+
+        # Inception Module x3
+        self.b4 = nn.Sequential(
+            InceptionModule(256, 128, (64, 256), (32, 64), 64),             # 512,4,4
+            InceptionModule(512, 128, (128, 256), (32, 64), 64),            # 512,4,4
+            InceptionModule(512, 256, (160, 320), (32, 128), 128),          # 832,4,4
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                # 832,2,2
+        )
         
-        self.relu = nn.ReLU()
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.dropout = nn.Dropout(dropout)
+        # Inception Module x2
+        self.b5 = nn.Sequential(
+            InceptionModule(832, 256, (160, 320), (32, 128), 128),          # 832,2,2
+            InceptionModule(832, 384, (192, 384), (48, 128), 128),          # 1024,2,2
+            nn.AvgPool2d(kernel_size=2, stride=2, padding=0)                # 1024,1,1
+        )
 
-        self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3)
-        self.conv2 = nn.Conv2d(64, 64, kernel_size=1)
-        self.conv3 = nn.Conv2d(64, 192, kernel_size=3, padding=1)
-
-        self.stack1 = StackedInception(192, 2)
-        self.stack2 = StackedInception(256, 5)
-        self.stack3 = StackedInception(256, 2)
-
-        # Fully Connected to predict output labels
-        self.fc = nn.Linear(256, 10)
-
+        self.fc = nn.Linear(1024, 10)  # 10 classes for output
 
     def forward(self, x, extract_features=False):
-        x = self.conv1(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.maxpool(x)
-
-        x = self.conv2(x)
-        x = self.relu(x)
-        x = self.conv3(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.maxpool(x)
-
-        x = self.stack1(x)
-        x = self.dropout(x)
-        x = self.maxpool(x)
-
-        x = self.stack2(x)
-        x = self.dropout(x)
-        x = self.maxpool(x)
-
-        x = self.stack3(x)
-        x = self.dropout(x)
-        x = self.global_avg_pool(x)
-
-        x = x.view(x.size(0), -1)
+        x = self.b1(x)
+        x = self.b2(x)
+        x = self.b3(x)
+        x = self.b4(x)
+        x = self.b5(x)
+        x = torch.flatten(x, start_dim=1)
+        
         if extract_features:
             return x
         
-        x = self.fc(x)
-        return x
+        return self.fc(x)
 #----------------------------------------Inception Model----------------------------------------
 
 
