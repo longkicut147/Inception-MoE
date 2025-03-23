@@ -13,7 +13,7 @@ import torch.optim as optim
 
 from CIFAR10Dataset import pretrain_dataset, val_dataset
 from torch.utils.data import DataLoader
-from model import CNN_Inception
+from model import *
 
 
 # Set the seed for reproducibility
@@ -38,9 +38,9 @@ val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False)
 
 # Initialize the model, loss function, and optimizer
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = CNN_Inception(dropout=0.5).to(device)
+model = CNN_Inception().to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
+optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
 
 # Early Stopping Parameters
 patience = 100  # Số epoch cho phép trước khi dừng
@@ -73,7 +73,7 @@ for epoch in range(num_epochs):
         loss = criterion(outputs, labels)
         loss.backward()
 
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
         optimizer.step()
 
@@ -105,7 +105,7 @@ for epoch in range(num_epochs):
             accuracy = (outputs.argmax(dim=1) == labels).float().mean()
             val_accuracy += accuracy
 
-    print(f"\nValidation Loss: {val_loss / len(val_loader):.4f} | Accuracy: {val_accuracy.item() / len(val_loader):.2f}\n")
+    print(f"\nEpoch: {epoch + 1}/{num_epochs} | Validation Loss: {val_loss / len(val_loader):.4f} | Accuracy: {val_accuracy.item() / len(val_loader):.2f}\n")
 
     val_losses.append(val_loss / len(val_loader))
     val_accuracies.append(val_accuracy / len(val_loader))

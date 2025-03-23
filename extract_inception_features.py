@@ -21,7 +21,7 @@ test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 # Load the model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 cnn_inception = CNN_Inception(in_channels=3).to(device)
-cnn_inception.load_state_dict(torch.load("inception_weights.pth"))
+cnn_inception.load_state_dict(torch.load("Inception_weights.pth"))
 cnn_inception.eval()
 
 
