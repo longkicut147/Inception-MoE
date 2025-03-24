@@ -120,7 +120,7 @@ class SimpleCNN(nn.Module):
         self.fc1 = nn.Linear(128 * 4 * 4, 128)
         self.fc2 = nn.Linear(128, num_classes)
         
-    def forward(self, x):
+    def forward(self, x, extract_features=False):
         x = F.relu(self.bn1(self.conv1(x))) # 32x32x32
         # x = F.relu(self.bn1(self.conv2(x))) # 32x32x32
         x = self.maxpool(x)                 # 32x16x16
@@ -139,7 +139,9 @@ class SimpleCNN(nn.Module):
         x = torch.flatten(x, 1)             # 128*4*4
         x = F.relu(self.bn1d(self.fc1(x)))
         x = self.dropout(x)
-        x = self.fc2(x)
+
+        if extract_features:
+            x = self.fc2(x)
         
         return x
 #----------------------------------------Simple CNN Model---------------------------------------
@@ -185,7 +187,7 @@ class CNN_Resnet(nn.Module):
         self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(128, num_classes)
 
-    def forward(self, x):
+    def forward(self, x, extract_features=False):
         x = F.relu(self.bn1(self.conv1(x)))
 
         x = self.layer1(x)
@@ -194,6 +196,10 @@ class CNN_Resnet(nn.Module):
 
         x = self.global_avg_pool(x)
         x = torch.flatten(x, 1)
+
+        if extract_features:
+            return x
+            
         x = self.fc(x)
         return x
 #----------------------------------------ResNet Model-------------------------------------------
