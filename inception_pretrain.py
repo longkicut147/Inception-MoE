@@ -55,7 +55,7 @@ epochs = []
 
 
 # Training step
-num_epochs = 100
+num_epochs = 500
 for epoch in range(num_epochs):
 
     # Train the model

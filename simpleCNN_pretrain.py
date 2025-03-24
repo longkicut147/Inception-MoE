@@ -40,7 +40,7 @@ val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = SimpleCNN().to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
 
 # Early Stopping Parameters
 patience = 100  # Số epoch cho phép trước khi dừng
@@ -55,7 +55,7 @@ epochs = []
 
 
 # Training step
-num_epochs = 100
+num_epochs = 500
 for epoch in range(num_epochs):
 
     # Train the model

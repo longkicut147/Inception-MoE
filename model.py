@@ -107,15 +107,14 @@ class SimpleCNN(nn.Module):
         super(SimpleCNN, self).__init__()
         
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.avgpool = nn.AvgPool2d(kernel_size=2, stride=2)
         self.dropout = nn.Dropout(0.5)
 
         self.bn1 = nn.BatchNorm2d(32)
         self.bn2 = nn.BatchNorm2d(64)
         self.bn3 = nn.BatchNorm2d(128)
-        self.bn4 = nn.BatchNorm2d(256)
         self.bn1d = nn.BatchNorm1d(128)
 
-        
         self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(32, 32, kernel_size=3, padding=1)
         
@@ -129,25 +128,25 @@ class SimpleCNN(nn.Module):
         self.fc2 = nn.Linear(128, num_classes)
         
     def forward(self, x):
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn1(self.conv2(x)))
-        x = self.maxpool(x)
+        x = F.relu(self.bn1(self.conv1(x))) # 32x32x32
+        # x = F.relu(self.bn1(self.conv2(x))) # 32x32x32
+        x = self.maxpool(x)                 # 32x16x16
         x = self.dropout(x)
         
-        x = F.relu(self.bn2(self.conv3(x)))
-        x = F.relu(self.bn2(self.conv4(x)))
-        x = self.maxpool(x)
+        x = F.relu(self.bn2(self.conv3(x))) # 64x16x16
+        # x = F.relu(self.bn2(self.conv4(x))) # 64x16x16
+        x = self.maxpool(x)                 # 64x8x8
         x = self.dropout(x)
         
-        x = F.relu(self.bn3(self.conv5(x)))
-        x = F.relu(self.bn3(self.conv6(x)))
-        x = self.maxpool(x)
+        x = F.relu(self.bn3(self.conv5(x))) # 128x8x8
+        # x = F.relu(self.bn3(self.conv6(x))) # 128x8x8
+        x = self.avgpool(x)                 # 128x4x4
         x = self.dropout(x)
         
-        x = torch.flatten(x, 1)
+        x = torch.flatten(x, 1)             # 128*4*4
         x = F.relu(self.bn1d(self.fc1(x)))
         x = self.dropout(x)
-        x = F.softmax(self.fc2(x))
+        x = self.fc2(x)
         
         return x
 #----------------------------------------Simple CNN Model---------------------------------------
