@@ -38,7 +38,7 @@ val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False)
 
 # Initialize the model, loss function, and optimizer
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = CNN_Inception().to(device)
+model = CNN_Inception(dropout=0.5).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
 
@@ -134,6 +134,13 @@ torch.save(model.state_dict(), "Inception_weights.pth")
 
 
 # Plot and save the training loss
+# turn back to cpu to plot
+train_losses = np.array(train_losses)
+val_losses = np.array(val_losses)
+train_accuracies = np.array(train_accuracies)
+val_accuracies = np.array(val_accuracies)
+epochs = np.array(epochs)
+
 plt.figure(figsize=(10, 6))
 plt.plot(epochs, train_losses, label='Train Loss', color='blue')
 plt.plot(epochs, val_losses, label='Validation Loss', color='orange')

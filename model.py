@@ -43,7 +43,7 @@ class CNN_Inception(nn.Module):
 
         # 7x7 Conv
         self.b1 = nn.Sequential(
-            nn.Conv2d(in_channels, 32, kernel_size=3, stride=1, padding=1), # 32,32,32
+            nn.Conv2d(in_channels, 32, kernel_size=5, stride=1, padding=2), # 32,32,32
             nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                # 32,16,16
@@ -51,40 +51,33 @@ class CNN_Inception(nn.Module):
 
         # 1x1 Conv -> 3x3 Conv
         self.b2 = nn.Sequential(
-            nn.Conv2d(32, 32, kernel_size=1),                               # 32,16,16
+            nn.Conv2d(32, 32, kernel_size=1),                             # 32,16,16
             nn.BatchNorm2d(32),
             nn.ReLU(),
-            nn.Conv2d(32, 96, kernel_size=3, padding=1),                    # 96,16,16
-            nn.BatchNorm2d(96),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),                    # 64,16,16
+            nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                # 96,8,8
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                # 64,8,8
         )
 
         # Inception Module x2
         self.b3 = nn.Sequential(
-            InceptionModule(96, 32, (48, 64), (8, 16), 16),                 # 128,8,8
-            InceptionModule(128, 64, (64, 96), (16, 48), 48),               # 256,8,8
-            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                # 256,4,4
+            InceptionModule(64, 32, (48, 64), (16, 32), 16),                # 144,8,8
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                # 144,4,4
         )
 
-        # Inception Module x5
         self.b4 = nn.Sequential(
-            InceptionModule(256, 128, (64, 256), (32, 64), 64),             # 512,4,4
-            InceptionModule(512, 128, (128, 256), (32, 64), 64),            # 512,4,4
-            InceptionModule(512, 128, (128, 256), (32, 64), 64),            # 512,4,4
-            InceptionModule(512, 112, (144, 288), (32, 64), 64),            # 512,4,4
-            InceptionModule(528, 256, (160, 320), (32, 128), 128),          # 832,4,4
-            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                # 832,2,2
-        )
-        
-        # Inception Module x2
-        self.b5 = nn.Sequential(
-            InceptionModule(832, 256, (160, 320), (32, 128), 128),          # 832,2,2
-            InceptionModule(832, 384, (192, 384), (48, 128), 128),          # 1024,2,2
-            nn.AvgPool2d(kernel_size=2, stride=2, padding=0)                # 1024,1,1
+            InceptionModule(144, 48, (64, 96), (16, 32), 16),               # 192,4,4
+            InceptionModule(192, 64, (80, 128), (24, 48), 24),              # 264,4,4
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                # 264,2,2
         )
 
-        self.fc = nn.Linear(1024, 10)  # 10 classes for output
+        self.b5 = nn.Sequential(
+            InceptionModule(264, 64, (80, 112), (32, 40), 40),              # 256,2,2
+            nn.AvgPool2d(kernel_size=2, stride=2, padding=0)                # 256,1,1
+        )
+
+        self.fc = nn.Linear(256, 10)  # 10 classes for output
 
     def forward(self, x, extract_features=False):
         x = self.b1(x)
@@ -152,4 +145,55 @@ class SimpleCNN(nn.Module):
 #----------------------------------------Simple CNN Model---------------------------------------
 
 
+#----------------------------------------ResNet Model-------------------------------------------
+# Residual Block
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, downsample=False):
+        super(ResidualBlock, self).__init__()
+        stride = 2 if downsample else 1  # Nếu downsample, giảm kích thước ảnh
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+
+        # Tầng shortcut nếu số channels thay đổi
+        self.shortcut = nn.Sequential()
+        if downsample or in_channels != out_channels:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channels)
+            )
+
+    def forward(self, x):
+        identity = self.shortcut(x)
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        out += identity
+        return F.relu(out)
+
+class CNN_Resnet(nn.Module):
+    def __init__(self, num_classes=10):
+        super(CNN_Resnet, self).__init__()
+        
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(32)
+
+        self.layer1 = ResidualBlock(32, 32)
+        self.layer2 = ResidualBlock(32, 64, downsample=True)
+        self.layer3 = ResidualBlock(64, 128, downsample=True)
+
+        self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(128, num_classes)
+
+    def forward(self, x):
+        x = F.relu(self.bn1(self.conv1(x)))
+
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+
+        x = self.global_avg_pool(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+        return x
 #----------------------------------------ResNet Model-------------------------------------------
