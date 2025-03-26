@@ -120,7 +120,7 @@ class SimpleCNN(nn.Module):
         self.fc1 = nn.Linear(128 * 4 * 4, 128)
         self.fc2 = nn.Linear(128, num_classes)
         
-    def forward(self, x):
+    def forward(self, x, extract_features=False):
         x = F.relu(self.bn1(self.conv1(x))) # 32x32x32
         # x = F.relu(self.bn1(self.conv2(x))) # 32x32x32
         x = self.maxpool(x)                 # 32x16x16
@@ -139,9 +139,11 @@ class SimpleCNN(nn.Module):
         x = torch.flatten(x, 1)             # 128*4*4
         x = F.relu(self.bn1d(self.fc1(x)))
         x = self.dropout(x)
-        x = self.fc2(x)
+
+        if extract_features:
+            return x
         
-        return x
+        return self.fc2(x)
 #----------------------------------------Simple CNN Model---------------------------------------
 
 
@@ -150,7 +152,9 @@ class SimpleCNN(nn.Module):
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, downsample=False):
         super(ResidualBlock, self).__init__()
+
         stride = 2 if downsample else 1  # Nếu downsample, giảm kích thước ảnh
+        
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, bias=False)
@@ -177,6 +181,7 @@ class CNN_Resnet(nn.Module):
         
         self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(32)
+        self.dropout = nn.Dropout(0.5)
 
         self.layer1 = ResidualBlock(32, 32)
         self.layer2 = ResidualBlock(32, 64, downsample=True)
@@ -185,15 +190,19 @@ class CNN_Resnet(nn.Module):
         self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(128, num_classes)
 
-    def forward(self, x):
+    def forward(self, x, extract_features=False):
         x = F.relu(self.bn1(self.conv1(x)))
 
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
-
+        x = self.dropout(x)
+        
         x = self.global_avg_pool(x)
         x = torch.flatten(x, 1)
-        x = self.fc(x)
-        return x
+
+        if extract_features:
+            return x
+
+        return self.fc(x)
 #----------------------------------------ResNet Model-------------------------------------------

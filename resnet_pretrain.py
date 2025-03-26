@@ -40,10 +40,10 @@ val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = CNN_Resnet().to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
 
 # Early Stopping Parameters
-patience = 100  # Số epoch cho phép trước khi dừng
+patience = 50  # Số epoch cho phép trước khi dừng
 best_val_loss = float("inf")
 early_stop_counter = 0
 
@@ -72,8 +72,6 @@ for epoch in range(num_epochs):
         outputs = model(images)
         loss = criterion(outputs, labels)
         loss.backward()
-
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
         optimizer.step()
 
@@ -128,9 +126,6 @@ for epoch in range(num_epochs):
         print("Early stopping triggered. Stopping training.")
         break
 
-
-# Save the model
-torch.save(model.state_dict(), "Resnet_weights.pth")
 
 
 # Plot and save the training loss
