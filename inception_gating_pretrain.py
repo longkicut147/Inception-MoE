@@ -1,5 +1,5 @@
 '''
-This script pretrains the SimpleCNN model on the CIFAR-10 dataset (5 train batches) and save the weights.
+This script pretrains the Inception_Gating model on the CIFAR-10 dataset (5 train batches) and save the weights.
 '''
 
 import numpy as np
@@ -38,7 +38,7 @@ val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False)
 
 # Initialize the model, loss function, and optimizer
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = SimpleCNN().to(device)
+model = CNN_Inception_Gating(dropout=0.7).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
 
@@ -55,7 +55,7 @@ epochs = []
 
 
 # Training step
-num_epochs = 1000
+num_epochs = 500
 for epoch in range(num_epochs):
 
     # Train the model
@@ -116,7 +116,7 @@ for epoch in range(num_epochs):
     if val_loss < best_val_loss:
         best_val_loss = val_loss
         early_stop_counter = 0
-        torch.save(model.state_dict(), "SimpleCNN_weights.pth")
+        torch.save(model.state_dict(), "Inception_Gating_weights.pth")
         print("✅ Model improved, saving...")
     else:
         early_stop_counter += 1
@@ -130,7 +130,15 @@ for epoch in range(num_epochs):
 val_accuracies = np.array([acc.cpu().numpy() for acc in val_accuracies])
 train_accuracies = np.array([acc.cpu().numpy() for acc in train_accuracies])
 
+
 # Plot and save the training loss
+# turn back to cpu to plot
+train_losses = np.array(train_losses)
+val_losses = np.array(val_losses)
+train_accuracies = np.array(train_accuracies)
+val_accuracies = np.array(val_accuracies)
+epochs = np.array(epochs)
+
 plt.figure(figsize=(10, 6))
 plt.plot(epochs, train_losses, label='Train Loss', color='blue')
 plt.plot(epochs, val_losses, label='Validation Loss', color='orange')
@@ -142,7 +150,7 @@ plt.legend()
 plt.grid(True)
 
 # Lưu biểu đồ
-plt.savefig('SimpleCNN_train_val_loss.png', bbox_inches='tight')
+plt.savefig('Inception_Gating_train_val_loss.png', bbox_inches='tight')
 plt.show()
 
 # Plot and save the training accuracy
@@ -157,6 +165,6 @@ plt.legend()
 plt.grid(True)
 
 # Lưu biểu đồ
-plt.savefig('SimpleCNN_train_val_accuracy.png', bbox_inches='tight')
+plt.savefig('Inception_Gating_train_val_accuracy.png', bbox_inches='tight')
 plt.show()
 

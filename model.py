@@ -121,7 +121,6 @@ class SimpleCNN(nn.Module):
         self.fc2 = nn.Linear(128, num_classes)
         
     def forward(self, x, extract_features=False):
-    def forward(self, x, extract_features=False):
         x = F.relu(self.bn1(self.conv1(x))) # 32x32x32
         # x = F.relu(self.bn1(self.conv2(x))) # 32x32x32
         x = self.maxpool(x)                 # 32x16x16
@@ -192,7 +191,6 @@ class CNN_Resnet(nn.Module):
         self.fc = nn.Linear(128, num_classes)
 
     def forward(self, x, extract_features=False):
-    def forward(self, x, extract_features=False):
         x = F.relu(self.bn1(self.conv1(x)))
 
         x = self.layer1(x)
@@ -209,3 +207,122 @@ class CNN_Resnet(nn.Module):
         return self.fc(x)
 #----------------------------------------ResNet Model-------------------------------------------
 
+
+#----------------------------------------Inception Gating---------------------------------------
+class Inception_Gating_Module(nn.Module):
+    def __init__(self, in_channels, c1, c2, c3, c4, top_k=2):
+        super(Inception_Gating_Module, self).__init__()
+        
+        self.top_k = top_k  # Số path quan trọng nhất cần giữ lại
+        
+        # Path 1: 1x1 Conv
+        self.p1_1 = nn.Conv2d(in_channels, c1, kernel_size=1)
+        self.p1_bn = nn.BatchNorm2d(c1)
+
+        # Path 2: 1x1 Conv -> 3x3 Conv
+        self.p2_1 = nn.Conv2d(in_channels, c2[0], kernel_size=1)
+        self.p2_2 = nn.Conv2d(c2[0], c2[1], kernel_size=3, padding=1)
+        self.p2_bn = nn.BatchNorm2d(c2[1])
+
+        # Path 3: 1x1 Conv -> 5x5 Conv
+        self.p3_1 = nn.Conv2d(in_channels, c3[0], kernel_size=1)
+        self.p3_2 = nn.Conv2d(c3[0], c3[1], kernel_size=5, padding=2)
+        self.p3_bn = nn.BatchNorm2d(c3[1])
+
+        # Path 4: 3x3 MaxPool -> 1x1 Conv
+        self.p4_1 = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
+        self.p4_2 = nn.Conv2d(in_channels, c4, kernel_size=1)
+        self.p4_bn = nn.BatchNorm2d(c4)
+        
+        self.relu = nn.ReLU()
+
+        # Gating Network 
+        self.gating = nn.Sequential(
+            nn.Conv2d(in_channels, 16, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(),  
+            nn.Linear(32, 4),  
+            nn.Softmax(dim=1)
+        )
+
+    def forward(self, x):
+        gate_weights = self.gating(x)  # (batch_size, 4)
+
+        # Tìm top-k trọng số lớn nhất
+        topk_values, topk_indices = torch.topk(gate_weights, self.top_k, dim=1)
+        mask = torch.zeros_like(gate_weights)
+        mask.scatter_(1, topk_indices, 1)  # Đánh dấu các path quan trọng nhất
+
+        # Giữ lại trọng số của top-k path, các path còn lại = 0
+        gate_weights = gate_weights * mask
+
+        # Chuẩn hóa lại trọng số để tổng = 1
+        gate_weights = gate_weights / gate_weights.sum(dim=1, keepdim=True)
+
+        # Tính output của từng path và nhân với trọng số gating
+        p1 = self.relu(self.p1_bn(self.p1_1(x))) * gate_weights[:, 0].view(-1, 1, 1, 1)
+        p2 = self.relu(self.p2_bn(self.p2_2(self.relu(self.p2_1(x))))) * gate_weights[:, 1].view(-1, 1, 1, 1)
+        p3 = self.relu(self.p3_bn(self.p3_2(self.relu(self.p3_1(x))))) * gate_weights[:, 2].view(-1, 1, 1, 1)
+        p4 = self.relu(self.p4_bn(self.p4_2(self.p4_1(x)))) * gate_weights[:, 3].view(-1, 1, 1, 1)
+
+        # Kết hợp lại bằng torch.cat
+        return torch.cat((p1, p2, p3, p4), dim=1)
+
+class CNN_Inception_Gating(nn.Module):
+    def __init__(self, in_channels=3, dropout=0.5):
+        super(CNN_Inception_Gating, self).__init__()
+
+        # 7x7 Conv
+        self.b1 = nn.Sequential(
+            nn.Conv2d(in_channels, 32, kernel_size=5, stride=1, padding=2), # 32,32,32
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                # 32,16,16
+        )
+
+        # 1x1 Conv -> 3x3 Conv
+        self.b2 = nn.Sequential(
+            nn.Conv2d(32, 32, kernel_size=1),                               # 32,16,16
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),                    # 64,16,16
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                # 64,8,8
+        )
+
+        # Inception Module x2
+        self.b3 = nn.Sequential(
+            Inception_Gating_Module(64, 32, (48, 64), (16, 32), 16),                # 144,8,8
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                        # 144,4,4
+        )
+
+        self.b4 = nn.Sequential(
+            Inception_Gating_Module(144, 48, (64, 96), (16, 32), 16),               # 192,4,4
+            Inception_Gating_Module(192, 64, (80, 128), (24, 48), 24),              # 264,4,4
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)                        # 264,2,2
+        )
+
+        self.b5 = nn.Sequential(
+            Inception_Gating_Module(264, 64, (80, 112), (32, 40), 40),              # 256,2,2
+            nn.AvgPool2d(kernel_size=2, stride=2, padding=0)                        # 256,1,1
+        )
+
+        self.fc = nn.Linear(256, 10)  # 10 classes for output
+
+    def forward(self, x, extract_features=False):
+        x = self.b1(x)
+        x = self.b2(x)
+        x = self.b3(x)
+        x = self.b4(x)
+        x = self.b5(x)
+        x = torch.flatten(x, start_dim=1)
+        
+        if extract_features:
+            return x
+        
+        return self.fc(x)

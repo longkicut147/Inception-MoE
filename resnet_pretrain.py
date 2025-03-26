@@ -127,6 +127,8 @@ for epoch in range(num_epochs):
         break
 
 
+val_accuracies = np.array([acc.cpu().numpy() for acc in val_accuracies])
+train_accuracies = np.array([acc.cpu().numpy() for acc in train_accuracies])
 
 # Plot and save the training loss
 plt.figure(figsize=(10, 6))

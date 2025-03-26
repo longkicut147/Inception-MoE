@@ -40,7 +40,7 @@ val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = CNN_Inception(dropout=0.5).to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
 
 # Early Stopping Parameters
 patience = 50  # Số epoch cho phép trước khi dừng
@@ -129,6 +129,8 @@ for epoch in range(num_epochs):
         break
 
 
+val_accuracies = np.array([acc.cpu().numpy() for acc in val_accuracies])
+train_accuracies = np.array([acc.cpu().numpy() for acc in train_accuracies])
 
 # Plot and save the training loss
 # turn back to cpu to plot
