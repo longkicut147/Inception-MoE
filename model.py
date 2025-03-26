@@ -121,6 +121,7 @@ class SimpleCNN(nn.Module):
         self.fc2 = nn.Linear(128, num_classes)
         
     def forward(self, x, extract_features=False):
+    def forward(self, x, extract_features=False):
         x = F.relu(self.bn1(self.conv1(x))) # 32x32x32
         # x = F.relu(self.bn1(self.conv2(x))) # 32x32x32
         x = self.maxpool(x)                 # 32x16x16
@@ -176,7 +177,7 @@ class ResidualBlock(nn.Module):
         return F.relu(out)
 
 class CNN_Resnet(nn.Module):
-    def __init__(self, num_classes=10):
+    def __init__(self, num_classes=10, extract_features=False):
         super(CNN_Resnet, self).__init__()
         
         self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1, bias=False)
@@ -190,6 +191,7 @@ class CNN_Resnet(nn.Module):
         self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(128, num_classes)
 
+    def forward(self, x, extract_features=False):
     def forward(self, x, extract_features=False):
         x = F.relu(self.bn1(self.conv1(x)))
 
@@ -206,3 +208,4 @@ class CNN_Resnet(nn.Module):
 
         return self.fc(x)
 #----------------------------------------ResNet Model-------------------------------------------
+
