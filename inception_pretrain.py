@@ -43,7 +43,7 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
 
 # Early Stopping Parameters
-patience = 50  # Số epoch cho phép trước khi dừng
+patience = 1000  # Số epoch cho phép trước khi dừng
 best_val_loss = float("inf")
 early_stop_counter = 0
 
@@ -55,7 +55,7 @@ epochs = []
 
 
 # Training step
-num_epochs = 500
+num_epochs = 1000
 for epoch in range(num_epochs):
 
     # Train the model
@@ -72,8 +72,6 @@ for epoch in range(num_epochs):
         outputs = model(images)
         loss = criterion(outputs, labels)
         loss.backward()
-
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
         optimizer.step()
 

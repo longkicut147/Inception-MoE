@@ -38,12 +38,12 @@ val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False)
 
 # Initialize the model, loss function, and optimizer
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = CNN_Inception_Gating(dropout=0.7).to(device)
+model = CNN_Inception_Gating(dropout=0.5).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
 
 # Early Stopping Parameters
-patience = 50  # Số epoch cho phép trước khi dừng
+patience = 1000  # Số epoch cho phép trước khi dừng
 best_val_loss = float("inf")
 early_stop_counter = 0
 
@@ -55,7 +55,7 @@ epochs = []
 
 
 # Training step
-num_epochs = 500
+num_epochs = 1000
 for epoch in range(num_epochs):
 
     # Train the model

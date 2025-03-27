@@ -43,7 +43,7 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
 
 # Early Stopping Parameters
-patience = 50  # Số epoch cho phép trước khi dừng
+patience = 1000  # Số epoch cho phép trước khi dừng
 best_val_loss = float("inf")
 early_stop_counter = 0
 
