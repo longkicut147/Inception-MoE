@@ -107,12 +107,12 @@ class CNN_Inception(nn.Module):
 
 #----------------------------------------Simple CNN Model---------------------------------------
 class SimpleCNN(nn.Module):
-    def __init__(self, num_classes=10):
+    def __init__(self, num_classes=10, dropout=0.5):
         super(SimpleCNN, self).__init__()
         
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.avgpool = nn.AvgPool2d(kernel_size=2, stride=2)
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(dropout)
 
         self.bn1 = nn.BatchNorm2d(32)
         self.bn2 = nn.BatchNorm2d(64)
@@ -179,12 +179,12 @@ class ResidualBlock(nn.Module):
         return F.relu(out)
 
 class CNN_Resnet(nn.Module):
-    def __init__(self, num_classes=10, extract_features=False):
+    def __init__(self, num_classes=10, dropout=0.5):
         super(CNN_Resnet, self).__init__()
         
         self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(32)
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(dropout)
 
         self.layer1 = ResidualBlock(32, 32)
         self.layer2 = ResidualBlock(32, 64, downsample=True)

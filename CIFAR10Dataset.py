@@ -7,7 +7,8 @@ from sklearn.model_selection import train_test_split
 
 import numpy as np
 import torch
-from torchvision.transforms import v2
+# from torchvision.transforms import v2
+import torchvision.transforms as v2
 
 
 class CIFAR10Dataset(Dataset):
@@ -32,7 +33,7 @@ def unpickle(file):
 transform = v2.Compose([
     v2.RandomResizedCrop(size=(32, 32), antialias=True),
     v2.RandomHorizontalFlip(p=0.5),
-    v2.ToDtype(torch.float32, scale=True),
+    # v2.ToDtype(torch.float32, scale=True),
     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
