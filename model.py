@@ -42,72 +42,48 @@ class CNN_Inception(nn.Module):
         super(CNN_Inception, self).__init__()
 
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
-        self.avgpool = nn.AdaptiveAvgPool2d(1)
+        self.avgpool = nn.AvgPool2d(kernel_size=2, stride=2)
         self.dropout = nn.Dropout(dropout)
 
-        # 5x5 Conv
         self.b1 = nn.Sequential(
-            nn.Conv2d(in_channels, 32, kernel_size=5, stride=1, padding=2), # 32,32,32
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-        )
-
-        # 1x1 Conv -> 3x3 Conv
-        self.b2 = nn.Sequential(
-            nn.Conv2d(32, 32, kernel_size=1),                             # 32,16,16
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),                    # 64,16,16
+            nn.Conv2d(in_channels, 64, kernel_size=5, stride=1, padding=2),
             nn.BatchNorm2d(64),
             nn.ReLU(),
         )
 
-        # Inception Module x2
-        self.b3 = nn.Sequential(
-            InceptionModule(64, 32, (48, 64), (16, 32), 16),                # 144,8,8
-        )
+        self.b2 = InceptionModule(64, 32, (48, 64), (16, 32), 16) 
+        self.b3 = InceptionModule(144, 48, (64, 96), (16, 32), 16) 
+        self.b4 = InceptionModule(192, 64, (80, 112), (32, 40), 40)
 
-        self.b4 = nn.Sequential(
-            InceptionModule(144, 48, (64, 96), (16, 32), 16),               # 192,4,4
-            InceptionModule(192, 64, (80, 128), (24, 48), 24),              # 264,4,4
-        )
-
-        self.b5 = nn.Sequential(
-            InceptionModule(264, 64, (80, 112), (32, 40), 40),              # 256,2,2
-        )
-
-        self.fc = nn.Linear(256, 10)  # 10 classes for output
+        self.fc1 = nn.Linear(256*2*2, 128)
+        self.fc2 = nn.Linear(128, 10)
 
     def forward(self, x, extract_features=False):
-        x = self.b1(x)
-        x = self.maxpool(x)
+        x = self.b1(x)              # 64,32,32
+        x = self.maxpool(x)         # 64,16,16
         x = self.dropout(x)
 
-        x = self.b2(x)
-        x = self.maxpool(x)
+        x = self.b2(x)              # 144,16,16
+        x = self.maxpool(x)         # 144,8,8
+        x = self.b3(x)              # 192,8,8
+        x = self.maxpool(x)         # 192,4,4
+        x = self.b4(x)              # 256,4,4
+        x = self.avgpool(x)         # 256,2,2
         x = self.dropout(x)
 
-        x = self.b3(x)
-        x = self.maxpool(x)
-        x = self.b4(x)
-        x = self.maxpool(x)
+        x = torch.flatten(x, start_dim=1)       # 256*2*2
+        x = self.fc1(x)                         # 128
 
-        x = self.b5(x)
-        x = self.avgpool(x)
-        x = self.dropout(x)
-
-        x = torch.flatten(x, start_dim=1)
-        
         if extract_features:
             return x
         
-        return self.fc(x)
+        return self.fc2(x)
 #----------------------------------------Inception Model----------------------------------------
 
 
 #----------------------------------------Simple CNN Model---------------------------------------
 class SimpleCNN(nn.Module):
-    def __init__(self, num_classes=10, dropout=0.5):
+    def __init__(self, in_channels=3, num_classes=10, dropout=0.5):
         super(SimpleCNN, self).__init__()
         
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -119,7 +95,7 @@ class SimpleCNN(nn.Module):
         self.bn3 = nn.BatchNorm2d(128)
         self.bn1d = nn.BatchNorm1d(128)
 
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
         self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
         
@@ -127,20 +103,20 @@ class SimpleCNN(nn.Module):
         self.fc2 = nn.Linear(128, num_classes)
         
     def forward(self, x, extract_features=False):
-        x = F.relu(self.bn1(self.conv1(x))) # 32x32x32
-        x = self.maxpool(x)                 # 32x16x16
+        x = F.relu(self.bn1(self.conv1(x))) # 32,32,32
+        x = self.maxpool(x)                 # 32,16,16
         x = self.dropout(x)
         
-        x = F.relu(self.bn2(self.conv2(x))) # 64x16x16
-        x = self.maxpool(x)                 # 64x8x8
+        x = F.relu(self.bn2(self.conv2(x))) # 64,16,16
+        x = self.maxpool(x)                 # 64,8,8
         x = self.dropout(x)
         
-        x = F.relu(self.bn3(self.conv3(x))) # 128x8x8
-        x = self.avgpool(x)                 # 128x4x4
+        x = F.relu(self.bn3(self.conv3(x))) # 128,8,8
+        x = self.avgpool(x)                 # 128,4,4
         x = self.dropout(x)
         
         x = torch.flatten(x, 1)             # 128*4*4
-        x = F.relu(self.bn1d(self.fc1(x)))
+        x = F.relu(self.bn1d(self.fc1(x)))  # 128
         x = self.dropout(x)
 
         if extract_features:
@@ -179,10 +155,10 @@ class ResidualBlock(nn.Module):
         return F.relu(out)
 
 class CNN_Resnet(nn.Module):
-    def __init__(self, num_classes=10, dropout=0.5):
+    def __init__(self, in_channels=3, num_classes=10, dropout=0.5):
         super(CNN_Resnet, self).__init__()
         
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=3, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(32)
         self.dropout = nn.Dropout(dropout)
 
@@ -190,25 +166,29 @@ class CNN_Resnet(nn.Module):
         self.layer2 = ResidualBlock(32, 64, downsample=True)
         self.layer3 = ResidualBlock(64, 128, downsample=True)
 
-        self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(128, num_classes)
+        self.avgpool = nn.AvgPool2d(kernel_size=2, stride=2)
+        self.fc1 = nn.Linear(128*4*4, 128)
+        self.fc2 = nn.Linear(128, num_classes)
 
     def forward(self, x, extract_features=False):
-        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn1(self.conv1(x)))     # 32,32,32
         x = self.dropout(x)
 
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
+        x = self.layer1(x)                      # 32,32,32
+        x = self.layer2(x)                      # 64,16,16
+        x = self.dropout(x)
+
+        x = self.layer3(x)                      # 128,8,8
+        x = self.avgpool(x)                     # 128,4,4
         x = self.dropout(x)
         
-        x = self.global_avg_pool(x)
-        x = torch.flatten(x, 1)
+        x = torch.flatten(x, 1)                 # 128*4*4
+        x = self.fc1(x)                         # 128
 
         if extract_features:
             return x
 
-        return self.fc(x)
+        return self.fc2(x)
 #----------------------------------------ResNet Model-------------------------------------------
 
 

@@ -1,5 +1,5 @@
 '''
-This script pretrains the Resnet model on the CIFAR-10 dataset (5 train batches) and save the weights.
+This script pretrains the SimpleCNN model on the CIFAR-10 dataset (5 train batches) and save the weights.
 '''
 
 import numpy as np
@@ -38,12 +38,14 @@ val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False)
 
 # Initialize the model, loss function, and optimizer
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = CNN_Resnet().to(device)
+model = SimpleCNN().to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
+optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=50, verbose=True)
+
 
 # Early Stopping Parameters
-patience = 50  # Số epoch cho phép trước khi dừng
+patience = 1000  # Số epoch cho phép trước khi dừng
 best_val_loss = float("inf")
 early_stop_counter = 0
 
@@ -110,13 +112,14 @@ for epoch in range(num_epochs):
 
 
     epochs.append(epoch + 1)
+    scheduler.step(val_loss)
 
 
     # Early Stopping
     if val_loss < best_val_loss:
         best_val_loss = val_loss
         early_stop_counter = 0
-        torch.save(model.state_dict(), "Resnet_weights.pth")
+        torch.save(model.state_dict(), "SimpleCNN_weights.pth")
         print("✅ Model improved, saving...")
     else:
         early_stop_counter += 1
@@ -142,7 +145,7 @@ plt.legend()
 plt.grid(True)
 
 # Lưu biểu đồ
-plt.savefig('Resnet_train_val_loss.png', bbox_inches='tight')
+plt.savefig('SimpleCNN_train_val_loss.png', bbox_inches='tight')
 plt.show()
 
 # Plot and save the training accuracy
@@ -157,6 +160,6 @@ plt.legend()
 plt.grid(True)
 
 # Lưu biểu đồ
-plt.savefig('Resnet_train_val_accuracy.png', bbox_inches='tight')
+plt.savefig('SimpleCNN_train_val_accuracy.png', bbox_inches='tight')
 plt.show()
 

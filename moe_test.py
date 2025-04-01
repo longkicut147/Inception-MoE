@@ -23,44 +23,43 @@ def set_seed(seed=42):
 set_seed(42)
 
 
-# Define the Gating Network
-class GatingNetwork(nn.Module):
-    def __init__(self, in_channels, num_experts):
-        super(GatingNetwork, self).__init__()
+# Define the Sparse Mixture of Experts Model
+class SparseMixtureOfExperts(nn.Module):
+    def __init__(self, in_channels, num_experts, expert_models, top_k=2):
+        super(SparseMixtureOfExperts, self).__init__()
+
+        self.in_channels = in_channels
+        self.num_experts = num_experts
+        self.experts = expert_models
+        self.top_k = top_k
+
         self.gating = nn.Sequential(
             nn.Conv2d(in_channels, 16, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(16, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.AdaptiveAvgPool2d(1),
-            nn.Flatten(),  
-            nn.Linear(32, num_experts),  
+            nn.Flatten(),
+            nn.Linear(128, num_experts),  
             nn.Softmax(dim=1)
         )
     
     def forward(self, x):
-        return self.gating(x)
-
-# Define the Sparse Mixture of Experts Model
-class SparseMixtureOfExperts(nn.Module):
-    def __init__(self, num_experts, expert_models, gating_network, top_k=2):
-        super(SparseMixtureOfExperts, self).__init__()
-        self.num_experts = num_experts
-        self.experts = expert_models
-        self.gating_network = gating_network
-        self.top_k = top_k
-    
-    def forward(self, x):
-        gate_output = self.gating_network(x)  # (batch_size, num_experts)
+        gate_output = self.gating(x)  # (batch_size, num_experts)
+        print(gate_output)
         topk_values, topk_indices = torch.topk(gate_output, self.top_k, dim=1)
         mask = torch.zeros_like(gate_output)
         mask.scatter_(1, topk_indices, 1)
         gate_weights = gate_output * mask
         gate_weights = gate_weights / gate_weights.sum(dim=1, keepdim=True)
+
         expert_outputs = torch.stack([self.experts[i](x) for i in range(self.num_experts)], dim=1)
+
         final_output = torch.sum(expert_outputs * gate_weights.unsqueeze(-1), dim=1)
         return final_output
+
 
 
 # Data loaders
@@ -71,17 +70,29 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Initialize models and data loaders
 num_experts = 3
-experts = [CNN_Inception(dropout=0).to(device), SimpleCNN(dropout=0).to(device), CNN_Resnet(dropout=0).to(device)]
-for expert in experts:
-    expert.eval()
+
+inception = CNN_Inception(in_channels=3).to(device)
+inception.load_state_dict(torch.load("weights/Inception_weights.pth"))
+inception.eval()
+
+simple_cnn = SimpleCNN(in_channels=3).to(device)
+simple_cnn.load_state_dict(torch.load("weights/SimpleCNN_weights.pth"))
+simple_cnn.eval()
+
+resnet = CNN_Resnet(in_channels=3).to(device)
+resnet.load_state_dict(torch.load("weights/Resnet_weights.pth"))
+resnet.eval()
+
+experts = [inception, simple_cnn, resnet]
+# for expert in experts:
+#     expert.eval()
 
 
-gating_network = GatingNetwork(in_channels=3, num_experts=num_experts).to(device)
-model = SparseMixtureOfExperts(num_experts, experts, gating_network).to(device)
+model = SparseMixtureOfExperts(in_channels=3, num_experts=num_experts, expert_models=experts).to(device)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-3)
-# optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=True)
 
 
 # Early Stopping Parameters
@@ -152,7 +163,7 @@ for epoch in range(num_epochs):
 
 
     epochs.append(epoch + 1)
-
+    scheduler.step(val_loss)
 
     # Early Stopping
     if val_loss < best_val_loss:

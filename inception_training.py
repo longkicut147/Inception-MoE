@@ -40,7 +40,9 @@ val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = CNN_Inception(dropout=0.5).to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
+optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-3)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=50, verbose=True)
+
 
 # Early Stopping Parameters
 patience = 1000  # Số epoch cho phép trước khi dừng
@@ -110,6 +112,7 @@ for epoch in range(num_epochs):
 
 
     epochs.append(epoch + 1)
+    scheduler.step(val_loss)
 
 
     # Early Stopping
