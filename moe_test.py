@@ -184,39 +184,4 @@ val_accuracies = np.array([acc.cpu().numpy() for acc in val_accuracies])
 train_accuracies = np.array([acc.cpu().numpy() for acc in train_accuracies])
 
 
-# Plot and save the training loss
-# turn back to cpu to plot
-train_losses = np.array(train_losses)
-val_losses = np.array(val_losses)
-train_accuracies = np.array(train_accuracies)
-val_accuracies = np.array(val_accuracies)
-epochs = np.array(epochs)
 
-plt.figure(figsize=(10, 6))
-plt.plot(epochs, train_losses, label='Train Loss', color='blue')
-plt.plot(epochs, val_losses, label='Validation Loss', color='orange')
-
-plt.xlabel('Epoch')
-plt.ylabel('Loss')
-plt.title('Training & Validation Loss per Epoch')
-plt.legend()
-plt.grid(True)
-
-# Lưu biểu đồ
-plt.savefig('MoE_train_val_loss.png', bbox_inches='tight')
-plt.show()
-
-# Plot and save the training accuracy
-plt.figure(figsize=(10, 6))
-plt.plot(epochs, train_accuracies, label='Train Accuracy', color='blue')
-plt.plot(epochs, val_accuracies, label='Validation Accuracy', color='orange')
-
-plt.xlabel('Epoch')
-plt.ylabel('Accuracy')
-plt.title('Training & Validation Accuracy per Epoch')
-plt.legend()
-plt.grid(True)
-
-# Lưu biểu đồ
-plt.savefig('MoE_train_val_accuracy.png', bbox_inches='tight')
-plt.show()
