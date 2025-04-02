@@ -1,5 +1,5 @@
 '''
-This script pretrains the Inception model on the CIFAR-10 dataset (5 train batches) and save the weights.
+This script pretrains the Inception model on the CIFAR-10 dataset (5 train batches) and saves the weights for three different pretraining datasets.
 '''
 
 import numpy as np
@@ -11,10 +11,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from CIFAR10Dataset import pretrain_dataset, val_dataset
+from CIFAR10Dataset import pretrain_dataset1, pretrain_dataset2, pretrain_dataset3, val_dataset1, val_dataset2, val_dataset3
 from torch.utils.data import DataLoader
 from model import *
-
 
 # Set the seed for reproducibility
 def set_seed(seed=42):
@@ -28,145 +27,130 @@ def set_seed(seed=42):
 
 set_seed(42)
 
-# Data loaders
-train_loader = DataLoader(pretrain_dataset, batch_size=2048, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False)
+# Dataset groups
+datasets = [
+    (pretrain_dataset1, val_dataset1, "group_labels1"),
+    (pretrain_dataset2, val_dataset2, "group_labels2"),
+    (pretrain_dataset3, val_dataset3, "group_labels3")
+]
 
+# Training loop for each dataset
+for train_dataset, val_dataset, dataset_name in datasets:
+    print(f"Training on {dataset_name}...")
+    
+    train_loader = DataLoader(train_dataset, batch_size=2048, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False)
+    
+    # Initialize the model, loss function, and optimizer
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = CNN_Inception().to(device)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=50, verbose=True)
 
-# --------------------------------------------------------------------------------
+    # Early Stopping Parameters
+    patience = 150
+    best_val_loss = float("inf")
+    early_stop_counter = 0
 
+    train_losses = []
+    val_losses = []
+    train_accuracies = []
+    val_accuracies = []
+    epochs = []
 
-# Initialize the model, loss function, and optimizer
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = CNN_Inception(dropout=0.5).to(device)
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-3)
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=50, verbose=True)
+    # Training step
+    num_epochs = 1000
+    for epoch in range(num_epochs):
 
+        # Train the model
+        model.train()
+        train_loss = 0.0
+        train_accuracy = 0.0
+        train_loader_tqdm = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs} ({dataset_name})", leave=False)
 
-# Early Stopping Parameters
-patience = 1000  # Số epoch cho phép trước khi dừng
-best_val_loss = float("inf")
-early_stop_counter = 0
-
-train_losses = []
-val_losses = []
-train_accuracies = []
-val_accuracies = []
-epochs = []
-
-
-# Training step
-num_epochs = 1000
-for epoch in range(num_epochs):
-
-    # Train the model
-    model.train()
-    train_loss = 0.0
-    train_accuracy = 0.0
-    train_loader_tqdm = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", leave=False)
-
-    for images, labels in train_loader:
-        images, labels = images.to(device), labels.to(device)
-
-        optimizer.zero_grad()
-
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-        loss.backward()
-
-        optimizer.step()
-
-        train_loss += loss.item()
-
-        accuracy = (outputs.argmax(dim=1) == labels).float().mean()
-        train_accuracy += accuracy
-
-        train_loader_tqdm.set_description(f"Epoch {epoch + 1}/{num_epochs} | Loss: {loss.item():.4f} | Accuracy: {train_accuracy.item() / len(train_loader):.2f}")
-        train_loader_tqdm.update()
-
-    train_losses.append(train_loss / len(train_loader))
-    train_accuracies.append(train_accuracy / len(train_loader))
-    train_loader_tqdm.close()
-
-    # Evaluate the model on the validation data
-    model.eval()
-    val_loss = 0.0
-    val_accuracy = 0.0
-    # val_loader = val_loader
-
-    with torch.no_grad():
-        for images, labels in val_loader:
+        for images, labels in train_loader:
             images, labels = images.to(device), labels.to(device)
+
+            optimizer.zero_grad()
+
             outputs = model(images)
             loss = criterion(outputs, labels)
-            val_loss += loss.item()
+            loss.backward()
+
+            optimizer.step()
+
+            train_loss += loss.item()
 
             accuracy = (outputs.argmax(dim=1) == labels).float().mean()
-            val_accuracy += accuracy
+            train_accuracy += accuracy
 
-    print(f"\nEpoch: {epoch + 1}/{num_epochs} | Validation Loss: {val_loss / len(val_loader):.4f} | Accuracy: {val_accuracy.item() / len(val_loader):.2f}\n")
+            train_loader_tqdm.set_description(f"Epoch {epoch + 1}/{num_epochs} ({dataset_name}) | Loss: {loss.item():.4f} | Accuracy: {train_accuracy.item() / len(train_loader):.2f}")
+            train_loader_tqdm.update()
 
-    val_losses.append(val_loss / len(val_loader))
-    val_accuracies.append(val_accuracy / len(val_loader))
+        train_losses.append(train_loss / len(train_loader))
+        train_accuracies.append(train_accuracy / len(train_loader))
+        train_loader_tqdm.close()
 
+        # Evaluate the model on the validation data
+        model.eval()
+        val_loss = 0.0
+        val_accuracy = 0.0
 
-    epochs.append(epoch + 1)
-    scheduler.step(val_loss)
+        with torch.no_grad():
+            for images, labels in val_loader:
+                images, labels = images.to(device), labels.to(device)
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+                val_loss += loss.item()
 
+                accuracy = (outputs.argmax(dim=1) == labels).float().mean()
+                val_accuracy += accuracy
 
-    # Early Stopping
-    if val_loss < best_val_loss:
-        best_val_loss = val_loss
-        early_stop_counter = 0
-        torch.save(model.state_dict(), "Inception_weights.pth")
-        print("✅ Model improved, saving...")
-    else:
-        early_stop_counter += 1
-        print(f"Early Stopping Counter: {early_stop_counter}/{patience}")
+        print(f"\nEpoch: {epoch + 1}/{num_epochs} ({dataset_name}) | Validation Loss: {val_loss / len(val_loader):.4f} | Accuracy: {val_accuracy.item() / len(val_loader):.2f}\n")
 
-    if early_stop_counter >= patience:
-        print("Early stopping triggered. Stopping training.")
-        break
+        val_losses.append(val_loss / len(val_loader))
+        val_accuracies.append(val_accuracy / len(val_loader))
+        epochs.append(epoch + 1)
+        scheduler.step(val_loss)
 
+        # Early Stopping
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            early_stop_counter = 0
+            torch.save(model.state_dict(), f"Inception_weights_{dataset_name}.pth")
+            print(f"✅ Model improved for {dataset_name}, saving...")
+        else:
+            early_stop_counter += 1
+            print(f"Early Stopping Counter ({dataset_name}): {early_stop_counter}/{patience}")
 
-val_accuracies = np.array([acc.cpu().numpy() for acc in val_accuracies])
-train_accuracies = np.array([acc.cpu().numpy() for acc in train_accuracies])
+        if early_stop_counter >= patience:
+            print(f"Early stopping triggered for {dataset_name}. Stopping training.")
+            break
 
-# Plot and save the training loss
-# turn back to cpu to plot
-train_losses = np.array(train_losses)
-val_losses = np.array(val_losses)
-train_accuracies = np.array(train_accuracies)
-val_accuracies = np.array(val_accuracies)
-epochs = np.array(epochs)
+    val_accuracies = np.array([acc.cpu().numpy() for acc in val_accuracies])
+    train_accuracies = np.array([acc.cpu().numpy() for acc in train_accuracies])
 
-plt.figure(figsize=(10, 6))
-plt.plot(epochs, train_losses, label='Train Loss', color='blue')
-plt.plot(epochs, val_losses, label='Validation Loss', color='orange')
+    # Plot and save the training loss
+    plt.figure(figsize=(10, 6))
+    plt.plot(epochs, train_losses, label='Train Loss', color='blue')
+    plt.plot(epochs, val_losses, label='Validation Loss', color='orange')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title(f'Training & Validation Loss per Epoch ({dataset_name})')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(f'Inception_loss_{dataset_name}.png', bbox_inches='tight')
+    plt.show()
 
-plt.xlabel('Epoch')
-plt.ylabel('Loss')
-plt.title('Training & Validation Loss per Epoch')
-plt.legend()
-plt.grid(True)
-
-# Lưu biểu đồ
-plt.savefig('Inception_train_val_loss.png', bbox_inches='tight')
-plt.show()
-
-# Plot and save the training accuracy
-plt.figure(figsize=(10, 6))
-plt.plot(epochs, train_accuracies, label='Train Accuracy', color='blue')
-plt.plot(epochs, val_accuracies, label='Validation Accuracy', color='orange')
-
-plt.xlabel('Epoch')
-plt.ylabel('Accuracy')
-plt.title('Training & Validation Accuracy per Epoch')
-plt.legend()
-plt.grid(True)
-
-# Lưu biểu đồ
-plt.savefig('Inception_train_val_accuracy.png', bbox_inches='tight')
-plt.show()
-
+    # Plot and save the training accuracy
+    plt.figure(figsize=(10, 6))
+    plt.plot(epochs, train_accuracies, label='Train Accuracy', color='blue')
+    plt.plot(epochs, val_accuracies, label='Validation Accuracy', color='orange')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.title(f'Training & Validation Accuracy per Epoch ({dataset_name})')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(f'Inception_accuracy_{dataset_name}.png', bbox_inches='tight')
+    plt.show()
