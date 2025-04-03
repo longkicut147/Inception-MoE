@@ -137,3 +137,25 @@ val_dataset = CIFAR10Dataset(val_images, val_labels)
 val_dataset1 = CIFAR10Dataset(val_images1, val_labels1)
 val_dataset2 = CIFAR10Dataset(val_images2, val_labels2)
 val_dataset3 = CIFAR10Dataset(val_images3, val_labels3)
+
+
+
+
+
+import matplotlib.pyplot as plt
+def plot_label_distribution(dataset, title):
+    labels = dataset.labels.numpy()
+    unique, counts = torch.unique(torch.tensor(labels), return_counts=True)
+
+    plt.bar(unique.numpy(), counts.numpy(), color='skyblue')
+    plt.xlabel("Labels")
+    plt.ylabel("Number of Samples")
+    plt.title(title)
+    plt.xticks(unique.numpy())  # Hiển thị tất cả các nhãn trên trục x
+    plt.show()
+
+# Vẽ biểu đồ cho từng dataset
+plot_label_distribution(pretrain_dataset, "Label Distribution in pretrain_dataset")
+plot_label_distribution(pretrain_dataset1, "Label Distribution in pretrain_dataset1")
+plot_label_distribution(pretrain_dataset2, "Label Distribution in pretrain_dataset2")
+plot_label_distribution(pretrain_dataset3, "Label Distribution in pretrain_dataset3")

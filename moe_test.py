@@ -48,7 +48,7 @@ class SparseMixtureOfExperts(nn.Module):
     
     def forward(self, x):
         gate_output = self.gating(x)  # (batch_size, num_experts)
-        # print(gate_output)
+        print(gate_output)
         topk_values, topk_indices = torch.topk(gate_output, self.top_k, dim=1)
         mask = torch.zeros_like(gate_output)
         mask.scatter_(1, topk_indices, 1)
@@ -58,6 +58,8 @@ class SparseMixtureOfExperts(nn.Module):
         expert_outputs = torch.stack([self.experts[i](x) for i in range(self.num_experts)], dim=1)
 
         final_output = torch.sum(expert_outputs * gate_weights.unsqueeze(-1), dim=1)
+
+        # print(final_output)
         return final_output
 
 
@@ -95,7 +97,7 @@ for expert in experts:
 model = SparseMixtureOfExperts(in_channels=3, num_experts=num_experts, expert_models=experts).to(device)
 
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-3)
+optimizer = optim.Adam(model.gating.parameters(), lr=1e-3)
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=50, verbose=True)
 
 
