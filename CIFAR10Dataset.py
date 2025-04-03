@@ -46,7 +46,7 @@ data_folder = 'cifar-10-batches-py/'
 
 
 
-# Load the pretrain data for features extraction models (using 4 training batches of Cifar-10)
+# Load the pretrain data for models (using 4 training batches of Cifar-10)
 for i in range(1, 5):
     pretrain_data_batch = unpickle(data_folder + 'data_batch_' + str(i))
     if i == 1:
@@ -60,6 +60,7 @@ pretrain_images = pretrain_images.reshape(-1, 3, 32, 32)
 pretrain_images = torch.tensor(pretrain_images, dtype=torch.float32) / 255.0
 pretrain_labels = torch.tensor(pretrain_labels, dtype=torch.long)
 
+
 # Split into groups
 mask1 = (pretrain_labels == 0) | (pretrain_labels == 1) | (pretrain_labels == 2) | (pretrain_labels == 3)
 mask2 = (pretrain_labels == 4) | (pretrain_labels == 5) | (pretrain_labels == 6)
@@ -69,7 +70,7 @@ pretrain_images1, pretrain_labels1 = pretrain_images[mask1], pretrain_labels[mas
 pretrain_images2, pretrain_labels2 = pretrain_images[mask2], pretrain_labels[mask2]
 pretrain_images3, pretrain_labels3 = pretrain_images[mask3], pretrain_labels[mask3]
 
-# Augment images
+# Augment group images
 pretrain_images1_aug = torch.stack([transform(img) for img in pretrain_images1])
 pretrain_images2_aug = torch.stack([transform(img) for img in pretrain_images2])
 pretrain_images3_aug = torch.stack([transform(img) for img in pretrain_images3])
@@ -81,7 +82,7 @@ pretrain_labels2 = torch.cat([pretrain_labels2, pretrain_labels2], dim=0)
 pretrain_images3 = torch.cat([pretrain_images3, pretrain_images3_aug], dim=0)
 pretrain_labels3 = torch.cat([pretrain_labels3, pretrain_labels3], dim=0)
 
-# Shuffle each dataset
+# Shuffle each group
 indices1 = torch.randperm(len(pretrain_labels1))
 indices2 = torch.randperm(len(pretrain_labels2))
 indices3 = torch.randperm(len(pretrain_labels3))
@@ -89,6 +90,17 @@ indices3 = torch.randperm(len(pretrain_labels3))
 pretrain_images1, pretrain_labels1 = pretrain_images1[indices1], pretrain_labels1[indices1]
 pretrain_images2, pretrain_labels2 = pretrain_images2[indices2], pretrain_labels2[indices2]
 pretrain_images3, pretrain_labels3 = pretrain_images3[indices3], pretrain_labels3[indices3]
+
+
+# Augment and shuffle the all-10-labels pretrain dataset
+pretrain_images_aug = torch.stack([transform(img) for img in pretrain_images])
+pretrain_images = torch.cat([pretrain_images, pretrain_images_aug], dim=0)
+pretrain_labels = torch.cat([pretrain_labels, pretrain_labels], dim=0)
+indices = torch.randperm(len(pretrain_labels))
+pretrain_images, pretrain_labels = pretrain_images[indices], pretrain_labels[indices]
+
+
+
 
 
 
@@ -111,27 +123,6 @@ val_images2, val_labels2 = val_images[valmask2], val_labels[valmask2]
 val_images3, val_labels3 = val_images[valmask3], val_labels[valmask3]
 
 
-# Load the data for the classifier models (using test batch of Cifar-10)
-data_batch = unpickle(data_folder + 'test_batch')
-images = data_batch[b'data']
-labels = data_batch[b'labels']
-
-images = images.reshape(-1, 3, 32, 32)
-images = torch.tensor(images, dtype=torch.float32) / 255.0
-labels = torch.tensor(labels, dtype=torch.long)
-
-# train test split
-train_images, test_images, train_labels, test_labels = train_test_split(images, labels, test_size=0.2, random_state=42, stratify=labels)
-
-# Augmentation train images (horizontal flip)
-train_images_aug = torch.stack([transform(img) for img in train_images])
-train_images = torch.cat([train_images, train_images_aug], dim=0)
-train_labels = torch.cat([train_labels, train_labels], dim=0)
-
-# Shuffle the train data
-indices = torch.randperm(len(train_labels))
-train_images = train_images[indices]
-train_labels = train_labels[indices]
 
 
 
@@ -146,6 +137,3 @@ val_dataset = CIFAR10Dataset(val_images, val_labels)
 val_dataset1 = CIFAR10Dataset(val_images1, val_labels1)
 val_dataset2 = CIFAR10Dataset(val_images2, val_labels2)
 val_dataset3 = CIFAR10Dataset(val_images3, val_labels3)
-
-train_dataset = CIFAR10Dataset(train_images, train_labels)
-test_dataset = CIFAR10Dataset(test_images, test_labels)

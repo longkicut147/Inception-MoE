@@ -48,7 +48,7 @@ class SparseMixtureOfExperts(nn.Module):
     
     def forward(self, x):
         gate_output = self.gating(x)  # (batch_size, num_experts)
-        print(gate_output)
+        # print(gate_output)
         topk_values, topk_indices = torch.topk(gate_output, self.top_k, dim=1)
         mask = torch.zeros_like(gate_output)
         mask.scatter_(1, topk_indices, 1)
@@ -71,32 +71,36 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Initialize models and data loaders
 num_experts = 3
 
-inception = CNN_Inception(in_channels=3).to(device)
-inception.load_state_dict(torch.load("weights/Inception_weights.pth"))
-inception.eval()
+# inception = CNN_Inception(in_channels=3).to(device)
+# inception.load_state_dict(torch.load("weights/Inception_weights.pth"))
+# inception.eval()
 
-simple_cnn = SimpleCNN(in_channels=3).to(device)
-simple_cnn.load_state_dict(torch.load("weights/SimpleCNN_weights.pth"))
-simple_cnn.eval()
+# simple_cnn = SimpleCNN(in_channels=3).to(device)
+# simple_cnn.load_state_dict(torch.load("weights/SimpleCNN_weights.pth"))
+# simple_cnn.eval()
 
-resnet = CNN_Resnet(in_channels=3).to(device)
-resnet.load_state_dict(torch.load("weights/Resnet_weights.pth"))
-resnet.eval()
+resnet1 = CNN_Resnet(in_channels=3).to(device)
+resnet1.load_state_dict(torch.load("weights/Resnet_weights_group_labels1.pth"))
+resnet2 = CNN_Resnet(in_channels=3).to(device)
+resnet2.load_state_dict(torch.load("weights/Resnet_weights_group_labels2.pth"))
+resnet3 = CNN_Resnet(in_channels=3).to(device)
+resnet3.load_state_dict(torch.load("weights/Resnet_weights_group_labels3.pth"))
 
-experts = [inception, simple_cnn, resnet]
-# for expert in experts:
-#     expert.eval()
+
+experts = [resnet1, resnet2, resnet3]
+for expert in experts:
+    expert.eval()
 
 
 model = SparseMixtureOfExperts(in_channels=3, num_experts=num_experts, expert_models=experts).to(device)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-3)
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=True)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=50, verbose=True)
 
 
 # Early Stopping Parameters
-patience = 1000  # Số epoch cho phép trước khi dừng
+patience = 150  # Số epoch cho phép trước khi dừng
 best_val_loss = float("inf")
 early_stop_counter = 0
 
